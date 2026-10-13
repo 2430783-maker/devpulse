@@ -149,131 +149,126 @@ Role permissions follow a strict hierarchy: Lead Engineers inherit all capabilit
 - A-1: A hosted database is available to the Vercel project through an environment variable.
 - A-2: The app is used for demos and class work, so traffic is low.
 - A-3: (Beta) The first admin is promoted manually in the Supabase table editor.
-- A-4: (Beta) MVP tasks are demo data and may be removed when tasks get an owner.
-
+- A-4: (Beta) MVP incidents are demo data and may be removed when incidents get an owner.
+- 
 ## 3. Functional requirements
 
-### 3.1 Tasks — MVP
+### 3.1 Incidents — MVP
 
 | ID | Requirement | Release | Story |
 |---|---|---|---|
-| FR-01 | The system shall create a task from a JSON body with `title` (required), `description`, `due_date` (optional). New tasks have `is_completed = false`. | MVP | US-01 |
-| FR-02 | The system shall return the list of tasks, newest first. | MVP | US-02 |
-| FR-03 | The list shall support `offset` (default 0) and `limit` (default 20, max 100) query parameters. | MVP | US-02 |
-| FR-04 | The system shall return one task by its ID. | MVP | US-03 |
-| FR-05 | The system shall update any of `title`, `description`, `due_date`, `is_completed` on an existing task. Fields not sent stay unchanged. | MVP | US-04, US-05 |
-| FR-06 | The system shall delete a task by its ID. | MVP | US-06 |
-| FR-07 | The system shall set `created_at` when a task is created and update `updated_at` on every change. | MVP | US-04 |
-| FR-08 | The system shall reject invalid input with status `422` and a message saying which field is wrong. | MVP | US-07 |
-| FR-09 | The system shall return `404` when a task ID does not exist. | MVP | US-07 |
-| FR-10 | The system shall expose `GET /api/health` returning `{"status": "ok"}`. | MVP | US-08 |
-| FR-11 | The system shall publish interactive API docs at `/api/docs`. | MVP | US-07 |
+| FR-01 | The system shall create an incident from a JSON payload containing title (required), description, and severity (optional). New incidents default to status = Open. | MVP | US-01 |
+| FR-02 | The system shall return a paginated list of incidents ordered by recency. | MVP | US-02 |
+| FR-03 | The incident list shall accept offset (default 0) and limit (default 20, max 100) query parameters. | MVP | US-02 |
+| FR-04 | The system shall return a single incident matching its unique ID. | MVP | US-03 |
+| FR-05 | The system shall update any combination of title, description, severity, or status on an existing incident. Omitted fields remain untouched. | MVP | US-04, US-05 |
+| FR-06 | The system shall delete an incident record by ID. | MVP | US-06 |
+| FR-07 | The system shall stamp created_at upon creation and update updated_at on any modification. | MVP | US-04 |
+| FR-08 | The system shall reject malformed validation input with status 422 detailing failing parameters. | MVP | US-07 |
+| FR-09 | The system shall return 404 when an requested incident ID does not exist. | MVP | US-07 |
+| FR-10 | The system shall expose GET /api/health returning {"status": "ok"}. | MVP | US-08 |
+| FR-11 | The system shall publish interactive OpenAPI documentation at /api/docs. | MVP | US-07 |
 
 ### 3.2 Authentication and profile — Beta
 
 | ID | Requirement | Release | Story |
 |---|---|---|---|
-| FR-12 | The system shall let a guest sign up with `email`, `name` and `password`. Email is unique (case-insensitive); a duplicate returns `409`. New users get role `user`. | Beta | US-09 |
-| FR-13 | The system shall log a user in with email and password, returning an access token in the body and setting a refresh token cookie. Wrong email or password returns `401` with the same message for both. | Beta | US-10 |
-| FR-14 | The system shall issue a new access token when called with a valid refresh token cookie, and replace (rotate) the refresh token. | Beta | US-10 |
-| FR-15 | The system shall log a user out by revoking the refresh token and clearing the cookie. | Beta | US-10 |
-| FR-16 | The system shall return the logged-in user's profile (`id`, `email`, `name`, `role`). The password hash is never returned. | Beta | US-10 |
-| FR-17 | In the Beta, every task, group, user and admin endpoint shall require a valid access token; otherwise it returns `401`. | Beta | US-11 |
-| FR-40 | A user shall be able to change their own `name`. Email and role cannot be changed through the profile. | Beta | US-23, US-24 |
-| FR-41 | A user shall be able to change their password by sending the current and the new password. A wrong current password returns `400`. On success all the user's sessions (refresh tokens) are revoked and they log in again. | Beta | US-24 |
+| FR-12 | The system shall permit guest registration with email, name, and password. Emails must be unique case-insensitively; duplicates trigger 409. New profiles default to Software Engineer. | Beta | US-09 |
+| FR-13 | The system shall authenticate users via email and password, returning an access token in the body and setting a secure refresh token cookie. Invalid credentials return 401. | Beta | US-10 |
+| FR-14 | The system shall issue a fresh access token upon valid refresh token presentation, rotating the underlying refresh token. | Beta | US-10 |
+| FR-15 | The system shall terminate active sessions by revoking refresh tokens and clearing cookies. | Beta | US-10 |
+| FR-16 | The system shall return the profile payload (id, email, name, role) for the active session, omitting password hashes. | Beta | US-10 |
+| FR-17 | In Beta, all incident, team, and administration routes require a valid access token (401 otherwise). | Beta | US-11 |
+| FR-40 | Users shall be able to update their name profile attribute. Emails and global roles cannot be modified directly via profile endpoints. | Beta | US-23, US-24 |
+| FR-41 | Users shall be able to update their password by confirming current credentials. Errors return 400. Successful changes revoke all active sessions. | Beta | US-24 |
 
-### 3.3 Personal tasks — Beta
-
-| ID | Requirement | Release | Story |
-|---|---|---|---|
-| FR-18 | A task created through `/api/v1/tasks` shall belong to the caller (personal task). The list returns only the caller's personal tasks. | Beta | US-11 |
-| FR-19 | Reading, updating or deleting another user's personal task shall return `404`, so the task's existence is not revealed. | Beta | US-11 |
-
-### 3.4 Roles (RBAC) and admin — Beta
+### 3.3 Incident Ownership — Beta
 
 | ID | Requirement | Release | Story |
 |---|---|---|---|
-| FR-20 | Every user shall have exactly one global role: `user` or `admin`. | Beta | US-12 |
-| FR-21 | An admin shall be able to list all users (paginated). | Beta | US-12 |
-| FR-22 | An admin shall be able to change another user's role. An admin cannot change their own role (`400`), so the system always keeps at least one admin. | Beta | US-12 |
-| FR-23 | An admin shall be able to list all tasks (personal and group) and delete any task. | Beta | US-13 |
-| FR-24 | A non-admin calling an admin endpoint shall get `403`. | Beta | US-12, US-13 |
-| FR-35 | An admin shall be able to view dashboard stats: total users, admins, banned users, new users in the last 7 days, total / completed tasks, tasks created in the last 7 days, and total groups. | Beta | US-20 |
-| FR-36 | An admin shall be able to ban a user with an optional reason. Banning revokes all the user's refresh tokens. An admin cannot ban themself or another admin (`400`); demote the admin first. | Beta | US-21 |
-| FR-37 | A banned user shall get `403` ("Account banned") on login and on every authenticated request, even with an access token that has not expired yet. | Beta | US-21 |
-| FR-38 | An admin shall be able to unban a user; the user can then log in again. The user's tasks and group memberships are kept while banned. | Beta | US-22 |
-| FR-39 | The admin user list shall show each user's status (`active` / `banned`), ban date and ban reason. | Beta | US-21 |
+| FR-18 | Incidents managed via /api/v1/incidents link to authenticated ownership contexts. Lists return caller-accessible records. | Beta | US-11 |
+| FR-19 | Accessing unauthorized incident records returns 404 to prevent resource enumeration. | Beta | US-11 |
 
-### 3.5 Groups and group tasks — Beta
+### 3.4 RBAC and Administration — Beta
 
 | ID | Requirement | Release | Story |
 |---|---|---|---|
-| FR-25 | Any user shall be able to create a group with a `name`. The creator becomes the group's `owner`. | Beta | US-14 |
-| FR-26 | A user shall be able to list the groups they belong to. | Beta | US-14 |
-| FR-27 | The owner shall be able to rename or delete the group. Deleting a group deletes its tasks and memberships. | Beta | US-14 |
-| FR-28 | The owner shall be able to add a member by email. Unknown email returns `404`; an existing member returns `409`. | Beta | US-15 |
-| FR-29 | The owner shall be able to remove a member. A member shall be able to leave. The owner cannot leave (they delete the group instead). | Beta | US-15, US-18 |
-| FR-30 | Group members shall be able to list, create, view and update the group's tasks. | Beta | US-16 |
-| FR-31 | A group task may have an `assignee_id`, which must be a member of the group (`422` otherwise). When a member leaves or is removed, their assigned tasks in that group become unassigned. | Beta | US-17 |
-| FR-32 | A group task can be deleted by its creator or by the group owner. | Beta | US-16 |
-| FR-33 | A user who is not a member of a group shall get `404` for that group and its tasks. | Beta | US-16 |
+| FR-20 | Every registered user possesses one global system role: Software Engineer, Lead Engineer, or Administrator. | Beta | US-12 |
+| FR-21 | Administrators shall be able to list registered user directories. | Beta | US-12 |
+| FR-22 | Administrators shall be able to update user roles, except modifying their own role (400), ensuring administrative safety. | Beta | US-12 |
+| FR-23 |Administrators shall be able to view all system incidents and purge records if required. | Beta | US-13 |
+| FR-24 | Non-administrative calls to protected admin endpoints receive 403. | Beta | US-12, US-13 |
+| FR-35 | Administrators shall be able to review dashboard system analytics: user counts, role distributions, ban counts, and incident volume metrics. | Beta | US-20 |
+| FR-36 | Administrators shall be able to suspend accounts with audit reasons, invalidating associated refresh credentials. | Beta | US-21 |
+| FR-37 | Suspended accounts receive 403 ("Account suspended") on authentication attempts. | Beta | US-21 |
+| FR-38 | Administrators shall be able to lift account suspensions, restoring full access. | Beta | US-22 |
+| FR-39 | User listing views shall clearly denote active and suspended account states. | Beta | US-21 |
+
+### 3.5 Teams and Collaborative Workflows — Beta
+
+| ID | Requirement | Release | Story |
+|---|---|---|---|
+| FR-25 | Users shall be able to initialize collaborative team units with custom naming parameters. | Beta | US-14 |
+| FR-26 | Users shall be able to list associated team memberships. | Beta | US-14 |
+| FR-27 | Team creators can update or dissolve team configurations and associated scopes. | Beta | US-14 |
+| FR-28 | Team leads can provision members by email references. | Beta | US-15 |
+| FR-29 | Members can disengage from teams or be unassigned by leads. | Beta | US-15, US-18 |
+| FR-30 | Team members can inspect, create, and update team-scoped incident reports. | Beta | US-16 |
+| FR-31 | Team incidents may include engineer assignments validated against team membership rosters (422 on mismatch). | Beta | US-17 |
+| FR-32 | Team incidents can be modified by their authors or designated team leads. | Beta | US-16 |
+| FR-33 | Non-members attempting team resource access receive 404. | Beta | US-16 |
 
 ### 3.6 Account security — Beta
 
 | ID | Requirement | Release | Story |
 |---|---|---|---|
-| FR-34 | After 5 failed logins in a row for an email, the system shall block logins for that account for 15 minutes and return `429`. A successful login resets the counter. | Beta | US-19 |
+| FR-34 | Exceeding 5 consecutive authentication failures blocks account entry for 15 minutes, returning 429. | Beta | US-19 |
 
 ### 3.7 Validation rules
 
 | Field | Rule | Release |
 |---|---|---|
-| `title` | Required on create, string, 1–200 characters after trimming spaces | MVP |
+| `title` | Required on creation, string, 1–200 characters | MVP |
 | `description` | Optional, string, max 1000 characters | MVP |
-| `due_date` | Optional, date in `YYYY-MM-DD` format | MVP |
-| `is_completed` | Boolean | MVP |
+| `severity` | Optional category tag (e.g., P1, P2, P3) | MVP |
+| `status` | Open, In Progress, Resolved, Closed | MVP |
 | `offset` | Integer ≥ 0 | MVP |
 | `limit` | Integer 1–100 | MVP |
-| `email` | Valid email, max 254 characters, stored lowercase | Beta |
+| `email` | Standard format, max 254 chars, lowercase | Beta |
 | `name` (user) | 1–100 characters | Beta |
 | `password` | 8–128 characters | Beta |
 | `name` (group) | 1–100 characters | Beta |
-| `role` | `user` or `admin` | Beta |
-| `reason` (ban) | Optional, max 500 characters | Beta |
-| `assignee_id` | Optional; must be a member of the task's group | Beta |
+| `role` | `Software Engineer, Lead Engineer, Administrator` | Beta |
 
-### 3.8 Task states
+
+### 3.8 Incident States
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Pending: POST /tasks
-    Pending --> Completed: PATCH is_completed=true
-    Completed --> Pending: PATCH is_completed=false
-    Pending --> [*]: DELETE
-    Completed --> [*]: DELETE
+    [*] --> Open: POST /incidents
+    Open --> InProgress: PATCH status=In Progress
+    InProgress --> Resolved: PATCH status=Resolved
+    Resolved --> Closed: PATCH status=Closed
+    Open --> [*]: DELETE
 ```
-
-A new task always starts as `Pending` (`is_completed = false`). Editing other fields does not change the state. The same states apply to personal and group tasks.
 
 ### 3.9 Permission matrix — Beta
 
-| Action | Guest | User | Group member | Group owner | Admin |
-|---|---|---|---|---|---|
-| Sign up, log in | Yes | — | — | — | — |
-| Log out, view own profile, change own name and password | No | Yes | Yes | Yes | Yes |
-| CRUD own personal tasks | No | Yes | Yes | Yes | Yes |
-| Read/update another user's personal task | No | No (`404`) | No (`404`) | No (`404`) | Read only (via admin list) |
-| Delete any task | No | No | No | No | Yes |
-| List users, change roles | No | No (`403`) | No (`403`) | No (`403`) | Yes |
-| View dashboard stats, ban / unban users | No | No (`403`) | No (`403`) | No (`403`) | Yes (not self, not other admins) |
-| Create a group | No | Yes | Yes | Yes | Yes |
-| View group, members and group tasks | No | No (`404`) | Yes | Yes | No (`404`) unless member |
-| Create / update / assign group tasks | No | No (`404`) | Yes | Yes | No (`404`) unless member |
-| Delete a group task | No | No | Own tasks only | Yes | Yes (admin endpoint) |
-| Rename / delete group, add / remove members | No | No | No (`403`) | Yes | No |
-| Leave group | No | — | Yes | No (delete instead) | — |
+| Action | Guest | Software Engineer | Lead Engineer | Administrator |
+|---|---|---|---|---|
+| Sign up, log in | Yes | — | — | — |
+| Log out, view/edit profile | No | Yes | Yes | Yes |
+| CRUD own personal incidents | No | Yes | Yes | Yes |
+| Administrative user/role control (change roles, ban/unban) | No | No (`403`) | No (`403`) | Yes |
+| View dashboard analytics & stats | No | No (`403`) | No (`403`) | Yes |
+| Create a team | No | Yes | Yes | Yes |
+| View team, members and team incidents | No | No (`404`) (Unless member) | Yes | Yes |
+| Create / update / assign team incidents | No | No (`404`) (Unless member) | Yes | Yes |
+| Delete a team incident | No | No | Own team incidents only | Yes |
+| Rename / delete team, add / remove members | No | No (`403`) | Yes (Team Lead) | No (`403`) |
+| Leave team | No | — | Yes | — |
 
-"User" means a logged-in user who is not a member of the group in that row.
+*Note: "Software Engineer" in team contexts means a user who is not a member of that specific team.*
 
 ### 3.10 Status codes
 
@@ -319,35 +314,35 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 
 ### MVP
 
-**AC-01 Create task (FR-01, FR-07)**
-- Given a valid body `{"title": "Read chapter 3"}`
-- When the client sends `POST /api/v1/tasks`
-- Then the response is `201` with an `id`, `is_completed: false`, and `created_at` set.
+**AC-01 Create incident (FR-01, FR-07)**
+- Given a valid body `{"title": "Database connection drop", "severity": "P1"}`
+- When the client sends `POST /api/v1/incidents`
+- Then the response is `201` with an `id`, `status: "Open"`, and `created_at` set.
 
-**AC-02 Create task with no title (FR-08)**
+**AC-02 Create incident with no title (FR-08)**
 - Given a body `{}` or `{"title": ""}`
-- When the client sends `POST /api/v1/tasks`
+- When the client sends `POST /api/v1/incidents`
 - Then the response is `422` and mentions `title`.
 
-**AC-03 List tasks (FR-02, FR-03)**
-- Given 25 tasks exist
-- When the client sends `GET /api/v1/tasks?limit=10&offset=0`
-- Then the response is `200` with 10 tasks, newest first.
+**AC-03 List incidents (FR-02, FR-03)**
+- Given 25 incidents exist
+- When the client sends `GET /api/v1/incidents?limit=10&offset=0`
+- Then the response is `200` with 10 incidents, newest first.
 
-**AC-04 Get task (FR-04, FR-09)**
-- Given task `5` exists
-- When the client sends `GET /api/v1/tasks/5`, the response is `200` with that task.
-- When the client sends `GET /api/v1/tasks/9999`, the response is `404`.
+**AC-04 Get incident (FR-04, FR-09)**
+- Given incident `5` exists
+- When the client sends `GET /api/v1/incidents/5`, the response is `200` with that incident.
+- When the client sends `GET /api/v1/incidents/9999`, the response is `404`.
 
-**AC-05 Update task (FR-05, FR-07)**
-- Given task `5` exists with `is_completed: false`
-- When the client sends `PATCH /api/v1/tasks/5` with `{"is_completed": true}`
-- Then the response is `200`, `is_completed` is `true`, the title is unchanged, and `updated_at` is newer.
+**AC-05 Update incident (FR-05, FR-07)**
+- Given incident `5` exists with `status: "Open"`
+- When the client sends `PATCH /api/v1/incidents/5` with `{"status": "In Progress"}`
+- Then the response is `200`, `status` is `"In Progress"`, the title is unchanged, and `updated_at` is newer.
 
-**AC-06 Delete task (FR-06, FR-09)**
-- Given task `5` exists
-- When the client sends `DELETE /api/v1/tasks/5`
-- Then the response is `204`, and a following `GET /api/v1/tasks/5` returns `404`.
+**AC-06 Delete incident (FR-06, FR-09)**
+- Given incident `5` exists
+- When the client sends `DELETE /api/v1/incidents/5`
+- Then the response is `204`, and a following `GET /api/v1/incidents/5` returns `404`.
 
 **AC-07 Health (FR-10)**
 - When the client sends `GET /api/health`
@@ -356,101 +351,101 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 ### Beta
 
 **AC-08 Sign up (FR-12)**
-- Given no account exists for `a@x.com`
-- When a guest signs up with that email, the response is `201` with role `user` and no password field.
-- When anyone signs up again with `A@x.com`, the response is `409`.
+- Given no account exists for `engineer@devpulse.io`
+- When a guest signs up with that email, the response is `201` with role `Software Engineer` and no password field.
+- When anyone signs up again with `Engineer@devpulse.io`, the response is `409`.
 
 **AC-09 Log in (FR-13)**
-- Given user `a@x.com` exists
+- Given user `engineer@devpulse.io` exists
 - When they log in with the right password, the response is `200` with an `access_token`, and a `refresh_token` cookie is set.
 - When they log in with a wrong password, the response is `401`.
 
 **AC-10 Token required (FR-17)**
-- When a client calls `GET /api/v1/tasks` without a token, or with an expired one
+- When a client calls `GET /api/v1/incidents` without a token, or with an expired one
 - Then the response is `401`.
 
-**AC-11 Private personal tasks (FR-18, FR-19)**
-- Given user A owns task `5`
-- When user B sends `GET`, `PATCH` or `DELETE /api/v1/tasks/5`
-- Then the response is `404`, and A's task is unchanged.
+**AC-11 Private personal incidents (FR-18, FR-19)**
+- Given user A owns incident `5`
+- When user B sends `GET`, `PATCH` or `DELETE /api/v1/incidents/5`
+- Then the response is `404`, and A's incident is unchanged.
 
 **AC-12 Admin only (FR-21, FR-24)**
-- When a `user` calls `GET /api/v1/admin/users`, the response is `403`.
-- When an `admin` calls it, the response is `200` with the user list.
+- When a `Software Engineer` calls `GET /api/v1/admin/users`, the response is `403`.
+- When an `Administrator` calls it, the response is `200` with the user list.
 
 **AC-13 Change role (FR-22)**
-- When an admin sets user B's role to `admin`, the response is `200` and B can now call admin endpoints.
+- When an admin sets user B's role to `Lead Engineer`, the response is `200` and B can now access lead endpoints.
 - When an admin tries to change their own role, the response is `400`.
 
-**AC-14 Create group (FR-25, FR-26)**
-- When user A creates group "CSE 101 Project"
-- Then the response is `201`, A is the group's `owner`, and the group appears in A's `GET /api/v1/groups`.
+**AC-14 Create team (FR-25, FR-26)**
+- When user A creates team "Core Backend"
+- Then the response is `201`, A is the team's creator, and the team appears in A's `GET /api/v1/teams`.
 
-**AC-15 Non-member cannot see group (FR-33)**
-- Given user C is not in group `3`
-- When C sends `GET /api/v1/groups/3/tasks`
+**AC-15 Non-member cannot see team (FR-33)**
+- Given user C is not in team `3`
+- When C sends `GET /api/v1/teams/3/incidents`
 - Then the response is `404`.
 
-**AC-16 Assign group task (FR-31)**
-- Given B is a member of group `3` and C is not
-- When a member assigns a group task to B, the response is `200`.
+**AC-16 Assign team incident (FR-31)**
+- Given B is a member of team `3` and C is not
+- When a member assigns a team incident to B, the response is `200`.
 - When a member assigns it to C, the response is `422`.
 
 **AC-17 Login lockout (FR-34)**
-- Given 5 failed logins in a row for `a@x.com`
+- Given 5 failed logins in a row for `engineer@devpulse.io`
 - When the right password is sent within 15 minutes
 - Then the response is `429`; after 15 minutes the login succeeds.
 
 **AC-18 Dashboard stats (FR-35)**
-- Given 10 users (1 banned) and 40 tasks (15 completed)
-- When an admin sends `GET /api/v1/admin/stats`
-- Then the response is `200` with `users.total = 10`, `users.banned = 1`, `tasks.total = 40`, `tasks.completed = 15`.
-- When a `user` sends it, the response is `403`.
+- Given 10 users (1 suspended) and 40 incidents (15 resolved)
+- When an administrator sends `GET /api/v1/admin/stats`
+- Then the response is `200` with the correct aggregated metrics.
+- When a `Software Engineer` sends it, the response is `403`.
 
-**AC-19 Ban user (FR-36, FR-37)**
+**AC-19 Suspend user (FR-36, FR-37)**
 - Given user B is logged in with a valid access token
-- When an admin bans B with reason "spam"
+- When an administrator suspends B with reason "policy violation"
 - Then B's next request with the same access token returns `403`, B's refresh fails, and B's login returns `403`.
-- When an admin tries to ban themself or another admin, the response is `400`.
+- When an administrator tries to suspend themself or another administrator, the response is `400`.
 
-**AC-20 Unban user (FR-38)**
-- Given user B is banned
-- When an admin unbans B
-- Then B can log in again and still sees their old tasks.
+**AC-20 Restore user (FR-38)**
+- Given user B is suspended
+- When an administrator restores B
+- Then B can log in again and still sees their old incidents.
 
 **AC-21 Edit profile (FR-40)**
-- When a user sends `PATCH /api/v1/users/me` with `{"name": "Sayef R."}`
+- When a user sends `PATCH /api/v1/users/me` with `{"name": "Kumkum F."}`
 - Then the response is `200` with the new name, and `email` and `role` are unchanged.
 
 **AC-22 Change password (FR-41)**
 - When a user sends the wrong `current_password`, the response is `400`.
 - When they send the right one and a valid `new_password`, the response is `204`, their refresh fails, and they can log in only with the new password.
 
+---
+
 ## 6. Traceability
 
 | Story | Requirements | Endpoint (see [TDD, section 6](03-tdd.md#6-rest-api-design)) | Release |
 |---|---|---|---|
-| US-01 | FR-01, FR-07 | `POST /api/v1/tasks` | MVP |
-| US-02 | FR-02, FR-03 | `GET /api/v1/tasks` | MVP |
-| US-03 | FR-04 | `GET /api/v1/tasks/{id}` | MVP |
-| US-04, US-05 | FR-05, FR-07 | `PATCH /api/v1/tasks/{id}` | MVP |
-| US-06 | FR-06 | `DELETE /api/v1/tasks/{id}` | MVP |
+| US-01 | FR-01, FR-07 | `POST /api/v1/incidents` | MVP |
+| US-02 | FR-02, FR-03 | `GET /api/v1/incidents` | MVP |
+| US-03 | FR-04 | `GET /api/v1/incidents/{id}` | MVP |
+| US-04, US-05 | FR-05, FR-07 | `PATCH /api/v1/incidents/{id}` | MVP |
+| US-06 | FR-06 | `DELETE /api/v1/incidents/{id}` | MVP |
 | US-07 | FR-08, FR-09, FR-11 | All, `/api/docs` | MVP |
 | US-08 | FR-10 | `GET /api/health` | MVP |
 | US-09 | FR-12 | `POST /api/v1/auth/signup` | Beta |
 | US-10 | FR-13 – FR-16 | `/api/v1/auth/login`, `/refresh`, `/logout`, `GET /api/v1/users/me` | Beta |
-| US-11 | FR-17 – FR-19 | `/api/v1/tasks` (all) | Beta |
+| US-11 | FR-17 – FR-19 | `/api/v1/incidents` (all) | Beta |
 | US-12 | FR-20 – FR-22, FR-24 | `GET /api/v1/admin/users`, `PATCH /api/v1/admin/users/{id}/role` | Beta |
-| US-13 | FR-23, FR-24 | `GET /api/v1/admin/tasks`, `DELETE /api/v1/admin/tasks/{id}` | Beta |
-| US-14 | FR-25 – FR-27 | `/api/v1/groups`, `/api/v1/groups/{id}` | Beta |
-| US-15 | FR-28, FR-29 | `/api/v1/groups/{id}/members` | Beta |
-| US-16 | FR-30, FR-32, FR-33 | `/api/v1/groups/{id}/tasks` | Beta |
-| US-17 | FR-31 | `PATCH /api/v1/groups/{id}/tasks/{task_id}` | Beta |
-| US-18 | FR-29 | `DELETE /api/v1/groups/{id}/members/{user_id}` | Beta |
+| US-13 | FR-23, FR-24 | `GET /api/v1/admin/incidents`, `DELETE /api/v1/admin/incidents/{id}` | Beta |
+| US-14 | FR-25 – FR-27 | `/api/v1/teams`, `/api/v1/teams/{id}` | Beta |
+| US-15 | FR-28, FR-29 | `/api/v1/teams/{id}/members` | Beta |
+| US-16 | FR-30, FR-32, FR-33 | `/api/v1/teams/{id}/incidents` | Beta |
+| US-17 | FR-31 | `PATCH /api/v1/teams/{id}/incidents/{incident_id}` | Beta |
+| US-18 | FR-29 | `DELETE /api/v1/teams/{id}/members/{user_id}` | Beta |
 | US-19 | FR-34, NFR-11 – NFR-14 | `POST /api/v1/auth/login` | Beta |
 | US-20 | FR-35 | `GET /api/v1/admin/stats` | Beta |
-| US-21 | FR-36, FR-37, FR-39 | `POST /api/v1/admin/users/{id}/ban`, `GET /api/v1/admin/users` | Beta |
-| US-22 | FR-38 | `POST /api/v1/admin/users/{id}/unban` | Beta |
+| US-21 | FR-36, FR-37, FR-39 | `POST /api/v1/admin/users/{id}/suspend`, `GET /api/v1/admin/users` | Beta |
+| US-22 | FR-38 | `POST /api/v1/admin/users/{id}/restore` | Beta |
 | US-23, US-24 | FR-16, FR-40, FR-41 | `GET` / `PATCH /api/v1/users/me`, `POST /api/v1/users/me/password` | Beta |
-
-
