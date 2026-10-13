@@ -69,8 +69,6 @@ Engineering teams struggle to track outages and bugs when communication is scatt
 | Administrator | Manage user accounts, assign system roles, handle global application settings. | Beta |
 | Instructor / reviewer | An easy way to try the API ( /api/docs) and check the code during the mid-term viva. | MVP |
 
-In the **MVP** there are no accounts: there is one shared task list. In the **Beta** every task belongs to a user or a group.
-
 ## 5. Scope
 
 ### In scope — MVP (mid-term)
@@ -121,7 +119,7 @@ In the **MVP** there are no accounts: there is one shared task list. In the **Be
 | US-02 | As an engineer, I want to list all logged incidents so I can see what is pending. | F-2 |
 | US-03 | As an engineer, I want to view a single incident so I can inspect its details. | F-3 |
 | US-04 | As an engineer, I want to update an incident status so my team tracks progress. | F-4 |
-| US-05 | As an engineer, I want to update an incident status so my team tracks progress. | F-5 |
+| US-05 | As an engineer, I want to delete an obsolete incident so the log stays clean. | F-5 |
 | US-06 | As a client developer, I want clear error messages when validation fails. | F-6 |
 | US-07 | As a maintainer, I want a health endpoint to verify the deployment. | F-7 |
 
@@ -139,24 +137,23 @@ In the **MVP** there are no accounts: there is one shared task list. In the **Be
 ## 8. Success metrics
 
 ### MVP
-- All five CRUD endpoints work on the production Vercel URL.
-- Data is still there after a redeploy.
-- `/api/docs` lists every endpoint with request and response schemas.
+- All core CRUD REST endpoints work on the production Vercel URL.
+- Data persists across redeploys via Supabase PostgreSQL.
+- /api/docs correctly renders OpenAPI documentation.
 
 ### Beta
-- A user can never read, change or delete another user's personal task.
-- Every endpoint enforces the permission matrix in the [SRS, section 3.9](02-srs.md#39-permission-matrix--beta).
-- Group members can work on the same task list; non-members cannot see the group.
-- Passwords are never stored or returned in plain text.
-- A banned user is blocked on their very next request, not only at their next login.
+- RBAC permission matrix is strictly enforced across all endpoints.
+- Unauthenticated or unauthorized users cannot modify or assign tickets.
+- Passwords are securely hashed in the database
 
 ## 9. Assumptions and constraints
 
-- Hosted on Vercel (frontend and FastAPI backend in one project, see `vercel.json`).
-- Vercel functions are serverless, so data must live in an external database (Supabase PostgreSQL), not a local file.
-- Backend: Python 3.10+, FastAPI. Frontend: Vite + React + TypeScript.
-- The first admin is promoted manually (role set in the Supabase table editor); after that admins manage roles through the API.
-- MVP data is demo data; it does not need to be kept when the Beta adds user ownership.
+- Hosted on Vercel (frontend and FastAPI backend in one project, configured via `vercel.json`).
+- Vercel functions are serverless, so application data must persist in an external database (Supabase PostgreSQL) rather than local file storage.
+- Backend built with Python 3.10+ and FastAPI; frontend built with Vite, React, and TypeScript.
+- The initial Administrator role is promoted manually in the Supabase table editor; subsequent user roles are managed via the API.
+- MVP data serves as initial demo data and is not required to persist when Beta introduces user ownership and RBAC.
+
 
 ## 10. Milestones
 
@@ -164,22 +161,22 @@ In the **MVP** there are no accounts: there is one shared task list. In the **Be
 
 | Milestone | Deliverable |
 |---|---|
-| M1 — Docs | [PRD](01-prd.md), [SRS](02-srs.md) and [TDD](03-tdd.md) (covering MVP and Beta) approved |
-| M2 — Data layer | Task model and database connection |
-| M3 — API | Five CRUD endpoints with validation |
+| M1 — Docs | [PRD](01-prd.md), [SRS](02-srs.md), and [TDD](03-tdd.md) (covering MVP and Beta) approved |
+| M2 — Data layer | Incident model and Supabase PostgreSQL database connection |
+| M3 — API | Core CRUD REST endpoints with request/response validation |
 | M4 — Mid demo | Live on Vercel, tagged `v0.1.0` (MVP) |
 
 ### Beta — Final
 
 | Milestone | Deliverable |
 |---|---|
-| B1 — Auth | Sign up, login, logout, refresh, user profile (change name and password); tasks owned by a user; Alembic migrations in place |
-| B2 — RBAC + admin | `user` and `admin` roles, admin endpoints, admin dashboard stats, ban / unban, permission checks on every endpoint |
-| B3 — Group tasks | Groups, members, shared group tasks with assignee |
-| B4 — Security | Password hashing, secure cookies, login attempt limit, security headers, secret review |
-| B5 — Final demo | Beta live on Vercel, tagged `v0.2.0` (Beta) |
+| B1 — Auth | JWT sign up, login, logout, and profile management (password hashing, secure token storage) |
+| B2 — RBAC | Role enforcement (Software Engineer, Lead Engineer, Administrator) and endpoint permission checks |
+| B3 — Incident Assignment | Incident triage, severity/priority tagging, and assignment workflows |
+| B4 — Security | Password hashing, rate limiting/login attempt limits, and security headers |
+| B5 — Final demo | Beta live on Vercel, tagged `v1.0.0` (Beta) |
 
 ## 11. Release dependencies
 
-- The Beta is built on top of the MVP: the same `/api/v1/tasks` endpoints stay, but in the Beta they require login and only return the caller's own tasks.
-- Database migrations (Alembic) are introduced at the start of the Beta so the schema can grow from one table to five without manual SQL.
+- The Beta is built on top of the MVP: the same `/api/v1/incidents` endpoints stay, but in the Beta they require authentication and enforce role-based permissions (Software Engineer, Lead Engineer, Administrator).
+- Database migrations (Alembic) are introduced at the start of the Beta so the schema can safely grow from one table to five without manual SQL scripts.
