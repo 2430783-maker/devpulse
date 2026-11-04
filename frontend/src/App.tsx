@@ -1,4 +1,3 @@
-
 import { useEffect, useState, type FormEvent } from "react";
 
 const API = "https://devpulse-backend-betn.onrender.com";
