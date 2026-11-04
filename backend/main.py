@@ -1,4 +1,4 @@
-
+from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import sqlite3
 from datetime import datetime, timezone
@@ -11,6 +11,13 @@ app = FastAPI(
     title="DevPulse API",
     description="Incident Management System API",
     version="1.0.0",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Database configuration
