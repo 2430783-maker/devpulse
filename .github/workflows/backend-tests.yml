@@ -33,4 +33,4 @@ jobs:
         run: python -c "from app.main import app; paths = app.openapi()['paths']; required = ['/api/health', '/api/v1/incidents', '/api/v1/incidents/{incident_id}']; assert all(p in paths for p in required), 'Missing API routes'; print('API routes verified')"
 
       - name: Run CRUD tests
-        run: pytest -q
+        run: python -m pytest -q
