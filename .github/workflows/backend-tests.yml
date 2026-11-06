@@ -24,10 +24,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest httpx
 
       - name: Check backend imports
         run: python -c "from app.main import app; print('Backend imports successfully')"
 
       - name: Check API routes
         run: python -c "from app.main import app; paths = app.openapi()['paths']; required = ['/api/health', '/api/v1/incidents', '/api/v1/incidents/{incident_id}']; assert all(p in paths for p in required), 'Missing API routes'; print('API routes verified')"
+
+      - name: Run CRUD tests
+        run: pytest -q
