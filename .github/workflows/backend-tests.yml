@@ -1,0 +1,36 @@
+name: Backend Tests
+
+on:
+  push:
+    branches:
+      - feature/backend-refactoring
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check backend imports
+        run: python -c "from app.main import app; print('Backend imports successfully')"
+
+      - name: Check API routes
+        run: |
+          python -c "from app.main import app; paths = [route.path for route in app.routes]; required = ['/api/health', '/api/v1/incidents']; missing = [path for path in required if path not in paths]; assert not missing, f'Missing routes: {missing}'; print('Required API routes registered successfully')"
