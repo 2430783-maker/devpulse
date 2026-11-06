@@ -17,11 +17,9 @@ jobs:
         working-directory: backend
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -32,5 +30,4 @@ jobs:
         run: python -c "from app.main import app; print('Backend imports successfully')"
 
       - name: Check API routes
-        run: |
-          python -c "from app.main import app; paths = [route.path for route in app.routes]; required = ['/api/health', '/api/v1/incidents']; missing = [path for path in required if path not in paths]; assert not missing, f'Missing routes: {missing}'; print('Required API routes registered successfully')"
+        run: python -c "from app.main import app; paths = app.openapi()['paths']; required = ['/api/health', '/api/v1/incidents', '/api/v1/incidents/{incident_id}']; assert all(p in paths for p in required), 'Missing API routes'; print('API routes verified')"
