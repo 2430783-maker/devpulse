@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/",
+    "",
     response_model=IncidentResponse,
     status_code=201,
 )
@@ -46,7 +46,7 @@ def create_incident(incident: IncidentCreate):
     return dict(row)
 
 
-@router.get("/", response_model=list[IncidentResponse])
+@router.get("", response_model=list[IncidentResponse])
 def get_incidents():
     with get_db() as conn:
         rows = conn.execute(
