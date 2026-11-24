@@ -44,19 +44,19 @@ export default function IncidentDetails({
       </p>
 
       <p>
-        **Severity:** {incident.severity}
+        <strong>Severity:</strong> {incident.severity}
       </p>
 
       <p>
-        **Status:** {incident.status}
+        <strong>Status:</strong> {incident.status}
       </p>
 
       <p>
-        **Created:** {new Date(incident.created_at).toLocaleString()}
+        <strong>Created:</strong> {new Date(incident.created_at).toLocaleString()}
       </p>
 
       <p>
-        **Last updated:** {new Date(incident.updated_at).toLocaleString()}
+        <strong>Last updated:</strong> {new Date(incident.updated_at).toLocaleString()}
       </p>
     </section>
   );
