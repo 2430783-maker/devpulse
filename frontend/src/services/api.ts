@@ -19,11 +19,13 @@ async function request<T>(
     throw new Error(`API request failed: ${response.status}`);
   }
 
-  if (response.status === 204) {
+  const text = await response.text();
+
+  if (!text) {
     return undefined as T;
   }
 
-  return response.json();
+  return JSON.parse(text) as T;
 }
 
 export function getIncidents(): Promise<Incident[]> {
