@@ -14,7 +14,7 @@ def get_db():
         database_url,
         row_factory=dict_row,
         connect_timeout=10,
-        sslmode="require",
+        sslmode=os.getenv("DB_SSLMODE", "require"),
         prepare_threshold=None,
     )
 
