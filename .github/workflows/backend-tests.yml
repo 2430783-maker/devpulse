@@ -3,7 +3,8 @@ name: Backend Tests
 on:
   push:
     branches:
-      - feature/backend-refactoring
+      - main
+      - "feature/**"
   pull_request:
     branches:
       - main
@@ -12,14 +13,34 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: devpulse_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d devpulse_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     defaults:
       run:
         working-directory: backend
 
-    steps:
-      - uses: actions/checkout@v4
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/devpulse_test
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -30,7 +51,8 @@ jobs:
         run: python -c "from app.main import app; print('Backend imports successfully')"
 
       - name: Check API routes
-        run: python -c "from app.main import app; paths = app.openapi()['paths']; required = ['/api/health', '/api/v1/incidents', '/api/v1/incidents/{incident_id}']; assert all(p in paths for p in required), 'Missing API routes'; print('API routes verified')"
+        run: |
+          python -c "from app.main import app; paths = app.openapi()['paths']; required = ['/api/health', '/api/v1/incidents', '/api/v1/incidents/{incident_id}']; assert all(p in paths for p in required), 'Missing API routes'; print('API routes verified')"
 
-      - name: Run CRUD tests
+      - name: Run tests
         run: python -m pytest -q
