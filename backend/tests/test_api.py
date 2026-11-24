@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -50,4 +49,27 @@ def test_incident_crud():
 
     # VERIFY DELETION
     response = client.get(f"/api/v1/incidents/{incident_id}")
+    assert response.status_code == 404
+
+
+def test_invalid_incident_data():
+    response = client.post(
+        "/api/v1/incidents",
+        json={
+            "title": "",
+            "description": "Invalid test incident",
+            "severity": "Extreme",
+            "status": "Open",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_nonexistent_incident():
+    response = client.patch(
+        "/api/v1/incidents/9999999999",
+        json={"status": "Resolved"},
+    )
+
     assert response.status_code == 404
