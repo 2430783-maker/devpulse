@@ -1,3 +1,4 @@
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Response
@@ -12,20 +13,17 @@ from app.schemas import (
 router = APIRouter()
 
 
-@router.post(
-    "",
-    response_model=IncidentResponse,
-    status_code=201,
-)
+@router.post("", response_model=IncidentResponse, status_code=201)
 def create_incident(incident: IncidentCreate):
     now = datetime.now(timezone.utc).isoformat()
 
     with get_db() as conn:
-        cursor = conn.execute(
+        row = conn.execute(
             """
             INSERT INTO incidents
             (title, description, severity, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING *
             """,
             (
                 incident.title,
@@ -35,12 +33,6 @@ def create_incident(incident: IncidentCreate):
                 now,
                 now,
             ),
-        )
-
-        incident_id = cursor.lastrowid
-        row = conn.execute(
-            "SELECT * FROM incidents WHERE id = ?",
-            (incident_id,),
         ).fetchone()
 
     return dict(row)
@@ -60,7 +52,7 @@ def get_incidents():
 def get_incident(incident_id: int):
     with get_db() as conn:
         row = conn.execute(
-            "SELECT * FROM incidents WHERE id = ?",
+            "SELECT * FROM incidents WHERE id = %s",
             (incident_id,),
         ).fetchone()
 
@@ -80,27 +72,32 @@ def update_incident(incident_id: int, incident: IncidentUpdate):
     if any(value is None for value in updates.values()):
         raise HTTPException(status_code=422, detail="Fields cannot be null")
 
+    allowed_fields = {"title", "description", "severity", "status"}
+
+    if not set(updates).issubset(allowed_fields):
+        raise HTTPException(status_code=422, detail="Invalid update fields")
+
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     with get_db() as conn:
         existing = conn.execute(
-            "SELECT * FROM incidents WHERE id = ?",
+            "SELECT * FROM incidents WHERE id = %s",
             (incident_id,),
         ).fetchone()
 
         if existing is None:
             raise HTTPException(status_code=404, detail="Incident not found")
 
-        fields = ", ".join(f"{key} = ?" for key in updates)
+        fields = ", ".join(f"{key} = %s" for key in updates)
         values = list(updates.values()) + [incident_id]
 
         conn.execute(
-            f"UPDATE incidents SET {fields} WHERE id = ?",
+            f"UPDATE incidents SET {fields} WHERE id = %s",
             values,
         )
 
         row = conn.execute(
-            "SELECT * FROM incidents WHERE id = ?",
+            "SELECT * FROM incidents WHERE id = %s",
             (incident_id,),
         ).fetchone()
 
@@ -111,7 +108,7 @@ def update_incident(incident_id: int, incident: IncidentUpdate):
 def delete_incident(incident_id: int):
     with get_db() as conn:
         cursor = conn.execute(
-            "DELETE FROM incidents WHERE id = ?",
+            "DELETE FROM incidents WHERE id = %s",
             (incident_id,),
         )
 
