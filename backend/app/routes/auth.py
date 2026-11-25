@@ -1,4 +1,3 @@
-
 import re
 
 import psycopg
@@ -214,6 +213,8 @@ def refresh_access_token(
     new_token_hash = hash_refresh_token(new_refresh_token)
     new_expiry = get_refresh_token_expiry()
 
+    banned_session = False
+
     with get_db() as conn:
         session = conn.execute(
             """
@@ -247,25 +248,28 @@ def refresh_access_token(
                 """,
                 (session["session_id"],),
             )
+            banned_session = True
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This account has been suspended",
+        else:
+            conn.execute(
+                """
+                UPDATE user_sessions
+                SET refresh_token_hash = %s,
+                    expires_at = %s,
+                    last_used_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (
+                    new_token_hash,
+                    new_expiry,
+                    session["session_id"],
+                ),
             )
 
-        conn.execute(
-            """
-            UPDATE user_sessions
-            SET refresh_token_hash = %s,
-                expires_at = %s,
-                last_used_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-            """,
-            (
-                new_token_hash,
-                new_expiry,
-                session["session_id"],
-            ),
+    if banned_session:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been suspended",
         )
 
     set_refresh_cookie(response, new_refresh_token)
