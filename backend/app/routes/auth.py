@@ -1,14 +1,23 @@
-
 import re
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 
 from app.auth import (
     create_access_token,
+    create_refresh_token,
+    get_refresh_token_expiry,
     hash_password,
+    hash_refresh_token,
     verify_access_token,
     verify_password,
 )
@@ -17,6 +26,10 @@ from app.database import get_db
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
+
+REFRESH_COOKIE_NAME = "devpulse_refresh_token"
+REFRESH_COOKIE_PATH = "/api/v1/auth"
+REFRESH_TOKEN_EXPIRE_SECONDS = 7 * 24 * 60 * 60
 
 
 class RegisterRequest(BaseModel):
@@ -59,6 +72,28 @@ def public_user(user):
     }
 
 
+def set_refresh_cookie(response: Response, token: str):
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=REFRESH_TOKEN_EXPIRE_SECONDS,
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
+def clear_refresh_cookie(response: Response):
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path=REFRESH_COOKIE_PATH,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(data: RegisterRequest):
     try:
@@ -89,7 +124,11 @@ def register(data: RegisterRequest):
 
 
 @router.post("/login")
-def login(data: LoginRequest):
+def login(
+    data: LoginRequest,
+    request: Request,
+    response: Response,
+):
     email = data.email.strip().lower()
 
     with get_db() as conn:
@@ -116,13 +155,150 @@ def login(data: LoginRequest):
             detail="This account has been suspended",
         )
 
-    token = create_access_token(user["id"], user["role"])
+    refresh_token = create_refresh_token()
+    refresh_expiry = get_refresh_token_expiry()
+
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_sessions (
+                user_id,
+                refresh_token_hash,
+                expires_at,
+                user_agent,
+                ip_address
+            )
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                user["id"],
+                hash_refresh_token(refresh_token),
+                refresh_expiry,
+                user_agent,
+                client_ip,
+            ),
+        )
+
+    set_refresh_cookie(response, refresh_token)
+
+    access_token = create_access_token(
+        user["id"], user["role"]
+    )
 
     return {
-        "access_token": token,
+        "access_token": access_token,
         "token_type": "bearer",
         "user": public_user(user),
     }
+
+
+@router.post("/refresh")
+def refresh_access_token(
+    request: Request,
+    response: Response,
+):
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token required",
+        )
+
+    old_token_hash = hash_refresh_token(refresh_token)
+    new_refresh_token = create_refresh_token()
+    new_token_hash = hash_refresh_token(new_refresh_token)
+    new_expiry = get_refresh_token_expiry()
+
+    with get_db() as conn:
+        session = conn.execute(
+            """
+            SELECT
+                s.id AS session_id,
+                s.user_id,
+                u.role,
+                u.is_banned
+            FROM user_sessions s
+            JOIN users u ON u.id = s.user_id
+            WHERE s.refresh_token_hash = %s
+              AND s.revoked_at IS NULL
+              AND s.expires_at > CURRENT_TIMESTAMP
+            FOR UPDATE OF s
+            """,
+            (old_token_hash,),
+        ).fetchone()
+
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid, expired, or revoked refresh token",
+            )
+
+        if session["is_banned"]:
+            conn.execute(
+                """
+                UPDATE user_sessions
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (session["session_id"],),
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This account has been suspended",
+            )
+
+        conn.execute(
+            """
+            UPDATE user_sessions
+            SET refresh_token_hash = %s,
+                expires_at = %s,
+                last_used_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """,
+            (
+                new_token_hash,
+                new_expiry,
+                session["session_id"],
+            ),
+        )
+
+    set_refresh_cookie(response, new_refresh_token)
+
+    return {
+        "access_token": create_access_token(
+            session["user_id"], session["role"]
+        ),
+        "token_type": "bearer",
+    }
+
+
+@router.post("/logout")
+def logout(
+    request: Request,
+    response: Response,
+):
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+
+    if refresh_token:
+        with get_db() as conn:
+            conn.execute(
+                """
+                UPDATE user_sessions
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE refresh_token_hash = %s
+                  AND revoked_at IS NULL
+                """,
+                (hash_refresh_token(refresh_token),),
+            )
+
+    clear_refresh_cookie(response)
+
+    return {"message": "Logged out successfully"}
 
 
 def get_current_user(
