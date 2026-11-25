@@ -1,5 +1,6 @@
-
 import os
+import hmac
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -21,15 +22,47 @@ def get_secret_key():
             "JWT_SECRET_KEY environment variable is not configured"
         )
 
+    if len(secret_key) < 32:
+        raise RuntimeError(
+            "JWT_SECRET_KEY must be at least 32 characters long"
+        )
+
     return secret_key
 
 
+def get_password_pepper():
+    pepper = os.getenv("PASSWORD_PEPPER")
+
+    if not pepper:
+        raise RuntimeError(
+            "PASSWORD_PEPPER environment variable is not configured"
+        )
+
+    return pepper
+
+
+def prepare_password(password: str) -> str:
+    pepper = get_password_pepper()
+
+    return hmac.new(
+        pepper.encode("utf-8"),
+        password.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
 def hash_password(password: str) -> str:
-    return password_hasher.hash(password)
+    prepared_password = prepare_password(password)
+    return password_hasher.hash(prepared_password)
 
 
 def verify_password(password: str, hashed_password: str) -> bool:
-    return password_hasher.verify(password, hashed_password)
+    prepared_password = prepare_password(password)
+
+    return password_hasher.verify(
+        prepared_password,
+        hashed_password,
+    )
 
 
 def create_access_token(user_id: int, role: str) -> str:
@@ -63,8 +96,10 @@ def verify_access_token(token: str) -> dict:
         if payload.get("type") != "access":
             raise jwt.InvalidTokenError("Invalid token type")
 
-        if not payload.get("sub"):
-            raise jwt.InvalidTokenError("Missing user ID")
+        user_id = payload.get("sub")
+
+        if not isinstance(user_id, str) or not user_id.isdigit():
+            raise jwt.InvalidTokenError("Invalid user ID")
 
         return payload
 
