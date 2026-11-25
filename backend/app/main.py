@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.incidents import router as incidents_router
 from app.routes.auth import router as auth_router
 from app.routes.admin import router as admin_router
+from app.routes.groups import router as groups_router
 
 app = FastAPI(
     title="DevPulse API",
@@ -37,3 +38,8 @@ app.include_router(
     tags=["Authentication"],
 )
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Administration"])
+app.include_router(
+    groups_router,
+    prefix="/api/v1/groups",
+    tags=["Groups"],
+)
