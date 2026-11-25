@@ -1,3 +1,4 @@
+
 import re
 
 import psycopg
@@ -341,3 +342,83 @@ def get_current_user(
 @router.get("/me")
 def get_my_profile(user=Depends(get_current_user)):
     return public_user(user)
+
+
+@router.get("/sessions")
+def get_my_sessions(
+    request: Request,
+    user=Depends(get_current_user),
+):
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+
+    current_token_hash = (
+        hash_refresh_token(refresh_token)
+        if refresh_token
+        else None
+    )
+
+    with get_db() as conn:
+        sessions = conn.execute(
+            """
+            SELECT
+                id AS session_id,
+                created_at,
+                expires_at,
+                last_used_at,
+                user_agent,
+                ip_address::TEXT AS ip_address,
+                (refresh_token_hash = %s) AS is_current
+            FROM user_sessions
+            WHERE user_id = %s
+              AND revoked_at IS NULL
+              AND expires_at > CURRENT_TIMESTAMP
+            ORDER BY created_at DESC
+            """,
+            (current_token_hash, user["id"]),
+        ).fetchall()
+
+    return {
+        "sessions": sessions,
+        "total": len(sessions),
+    }
+
+
+@router.delete("/sessions/{session_id}")
+def revoke_my_session(
+    session_id: int,
+    request: Request,
+    response: Response,
+    user=Depends(get_current_user),
+):
+    with get_db() as conn:
+        session = conn.execute(
+            """
+            UPDATE user_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+              AND user_id = %s
+              AND revoked_at IS NULL
+            RETURNING refresh_token_hash
+            """,
+            (session_id, user["id"]),
+        ).fetchone()
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active session not found",
+        )
+
+    current_token = request.cookies.get(REFRESH_COOKIE_NAME)
+
+    if (
+        current_token
+        and hash_refresh_token(current_token)
+        == session["refresh_token_hash"]
+    ):
+        clear_refresh_cookie(response)
+
+    return {
+        "message": "Session revoked successfully",
+        "session_id": session_id,
+    }
