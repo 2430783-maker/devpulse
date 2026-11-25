@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-client = TestClient(app)
+client = TestClient(app, client=("127.0.0.1", 50000))
 
 AUTH_URL = "/api/v1/auth"
 INCIDENT_URL = "/api/v1/incidents"
