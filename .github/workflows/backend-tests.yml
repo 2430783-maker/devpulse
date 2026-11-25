@@ -33,10 +33,10 @@ jobs:
         working-directory: backend
 
     env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/devpulse_test
-        DB_SSLMODE: disable
-        PASSWORD_PEPPER: "ci-only-test-pepper-not-for-production"
-        JWT_SECRET_KEY: "ci-only-jwt-secret-key-at-least-32-characters"
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/devpulse_test
+      DB_SSLMODE: disable
+      PASSWORD_PEPPER: "ci-only-test-pepper-not-for-production"
+      JWT_SECRET_KEY: "ci-only-jwt-secret-key-at-least-32-characters"
       
     steps:
       - name: Checkout repository
@@ -56,6 +56,8 @@ jobs:
       - name: Check API routes
         run: |
           python -c "from app.main import app; paths = app.openapi()['paths']; required = ['/api/health', '/api/v1/incidents', '/api/v1/incidents/{incident_id}']; assert all(p in paths for p in required), 'Missing API routes'; print('API routes verified')"
-
+      - name: Run database migrations
+        run: python -c "from app.database import initialize_database; initialize_database()"
+        
       - name: Run tests
         run: python -m pytest -q
