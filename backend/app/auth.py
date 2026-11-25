@@ -1,6 +1,8 @@
 import os
 import hmac
 import hashlib
+import secrets
+
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -12,6 +14,7 @@ password_hasher = PasswordHash.recommended()
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 
 def get_secret_key():
@@ -109,3 +112,19 @@ def verify_access_token(token: str) -> dict:
             detail="Invalid or expired access token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def create_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(
+        token.encode("utf-8")
+    ).hexdigest()
+
+
+def get_refresh_token_expiry():
+    return datetime.now(timezone.utc) + timedelta(
+        days=REFRESH_TOKEN_EXPIRE_DAYS
+    )
