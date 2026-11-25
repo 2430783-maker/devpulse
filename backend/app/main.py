@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import initialize_database
 from app.routes.incidents import router as incidents_router
 from app.routes.auth import router as auth_router
 
@@ -18,8 +17,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-initialize_database()
 
 
 @app.get("/api/health")
