@@ -33,8 +33,10 @@ jobs:
         working-directory: backend
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/devpulse_test
-      DB_SSLMODE: disable
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/devpulse_test
+        DB_SSLMODE: disable
+        PASSWORD_PEPPER: "ci-only-test-pepper-not-for-production"
+        JWT_SECRET_KEY: "ci-only-jwt-secret-key-at-least-32-characters"
       
     steps:
       - name: Checkout repository
