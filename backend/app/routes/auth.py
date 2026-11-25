@@ -1,5 +1,4 @@
 import re
-
 import psycopg
 from fastapi import (
     APIRouter,
@@ -22,7 +21,7 @@ from app.auth import (
     verify_password,
 )
 from app.database import get_db
-
+from app.rbac import require_role
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
@@ -346,7 +345,15 @@ def get_current_user(
 @router.get("/me")
 def get_my_profile(user=Depends(get_current_user)):
     return public_user(user)
-
+    
+@router.get("/admin-check")
+def admin_check(
+    user=Depends(require_role(get_current_user, "admin")),
+):
+    return {
+        "message": "Admin access granted",
+        "user": public_user(user),
+    }
 
 @router.get("/sessions")
 def get_my_sessions(
