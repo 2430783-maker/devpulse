@@ -1,3 +1,4 @@
+
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
@@ -14,15 +15,15 @@
   "rewrites": [
     {
       "source": "/docs",
-      "destination": { "service": "backend" }
+      "destination": "https://devpulse-backend-betn.onrender.com/docs"
     },
     {
       "source": "/openapi.json",
-      "destination": { "service": "backend" }
+      "destination": "https://devpulse-backend-betn.onrender.com/openapi.json"
     },
     {
       "source": "/api/(.*)",
-      "destination": { "service": "backend" }
+      "destination": "https://devpulse-backend-betn.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
