@@ -282,8 +282,6 @@ def add_member(
     with get_db() as conn:
         require_group_owner(conn, group_id, user)
 
-        
-
         if data.email:
             target = conn.execute(
                 "SELECT id FROM users WHERE LOWER(email) = LOWER(%s)",
