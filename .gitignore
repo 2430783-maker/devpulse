@@ -1,14 +1,28 @@
+
 # Python
 __pycache__/
 .venv/
 *.pyc
+*.pyo
+.pytest_cache/
 
 # Node
 node_modules/
 frontend/dist/
 
-# Env / tooling
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+
+# Vercel
 .vercel/
+
+# IDE and editor
 .vscode/*
 !.vscode/extensions.json
+.idea/
+
+# Operating system
+.DS_Store
+Thumbs.db
