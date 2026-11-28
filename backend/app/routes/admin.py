@@ -3,6 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from psycopg.types.json import Jsonb
 
 from app.database import get_db
 from app.routes.auth import get_current_user
@@ -12,18 +13,12 @@ from app.rbac import require_role
 router = APIRouter()
 
 
-# Request models
 class RoleUpdateRequest(BaseModel):
     role: Literal["user", "admin"]
 
 
 class BanUpdateRequest(BaseModel):
     is_banned: bool
-
-
-# Every endpoint in this file requires admin access.
-def require_admin():
-    return Depends(require_role(get_current_user, "admin"))
 
 
 @router.get("/users")
@@ -51,10 +46,7 @@ def list_users(
         conditions.append("is_banned = %s")
         params.append(is_banned)
 
-    where_clause = (
-        "WHERE " + " AND ".join(conditions)
-        if conditions else ""
-    )
+    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     with get_db() as conn:
         total = conn.execute(
@@ -74,12 +66,7 @@ def list_users(
             params + [limit, offset],
         ).fetchall()
 
-    return {
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "users": users,
-    }
+    return {"total": total, "limit": limit, "offset": offset, "users": users}
 
 
 @router.patch("/users/{user_id}/role")
@@ -96,7 +83,7 @@ def update_user_role(
 
     with get_db() as conn:
         target = conn.execute(
-            "SELECT id FROM users WHERE id = %s",
+            "SELECT id, role FROM users WHERE id = %s",
             (user_id,),
         ).fetchone()
 
@@ -105,6 +92,8 @@ def update_user_role(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
+
+        old_role = target["role"]
 
         updated_user = conn.execute(
             """
@@ -116,6 +105,24 @@ def update_user_role(
             """,
             (request.role, user_id),
         ).fetchone()
+
+        if old_role != request.role:
+            conn.execute(
+                """
+                INSERT INTO audit_logs
+                    (actor_user_id, target_user_id, action, details)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    admin["id"],
+                    user_id,
+                    "user.role_changed",
+                    Jsonb({
+                        "old_role": old_role,
+                        "new_role": request.role,
+                    }),
+                ),
+            )
 
     return {
         "message": "User role updated successfully",
@@ -137,7 +144,7 @@ def update_user_ban_status(
 
     with get_db() as conn:
         target = conn.execute(
-            "SELECT id, role FROM users WHERE id = %s",
+            "SELECT id, role, is_banned FROM users WHERE id = %s",
             (user_id,),
         ).fetchone()
 
@@ -153,6 +160,8 @@ def update_user_ban_status(
                 detail="You cannot ban another administrator",
             )
 
+        old_status = target["is_banned"]
+
         updated_user = conn.execute(
             """
             UPDATE users
@@ -164,9 +173,83 @@ def update_user_ban_status(
             (request.is_banned, user_id),
         ).fetchone()
 
-    action = "banned" if request.is_banned else "unbanned"
+        if old_status != request.is_banned:
+            action = "user.banned" if request.is_banned else "user.unbanned"
+
+            conn.execute(
+                """
+                INSERT INTO audit_logs
+                    (actor_user_id, target_user_id, action, details)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    admin["id"],
+                    user_id,
+                    action,
+                    Jsonb({
+                        "previous_is_banned": old_status,
+                        "new_is_banned": request.is_banned,
+                    }),
+                ),
+            )
+
+    action_text = "banned" if request.is_banned else "unbanned"
 
     return {
-        "message": f"User {action} successfully",
+        "message": f"User {action_text} successfully",
         "user": updated_user,
+    }
+
+
+@router.get("/audit-logs")
+def list_audit_logs(
+    action: str | None = Query(default=None, max_length=100),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    admin=Depends(require_role(get_current_user, "admin")),
+):
+    conditions = []
+    params = []
+
+    if action:
+        conditions.append("a.action = %s")
+        params.append(action)
+
+    where_clause = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions else ""
+    )
+
+    with get_db() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS total FROM audit_logs a {where_clause}",
+            params,
+        ).fetchone()["total"]
+
+        logs = conn.execute(
+            f"""
+            SELECT
+                a.id,
+                a.action,
+                a.details,
+                a.created_at,
+                a.actor_user_id,
+                actor.email AS actor_email,
+                a.target_user_id,
+                target.email AS target_email
+            FROM audit_logs a
+            LEFT JOIN users actor ON actor.id = a.actor_user_id
+            LEFT JOIN users target ON target.id = a.target_user_id
+            {where_clause}
+            ORDER BY a.created_at DESC, a.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            params + [limit, offset],
+        ).fetchall()
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "logs": logs,
     }
