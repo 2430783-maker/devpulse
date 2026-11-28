@@ -201,6 +201,118 @@ def update_user_ban_status(
     }
 
 
+@router.get("/users/{user_id}/sessions")
+def list_user_sessions(
+    user_id: int,
+    admin=Depends(require_role(get_current_user, "admin")),
+):
+    if user_id == admin["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Use your own session management endpoint",
+        )
+
+    with get_db() as conn:
+        target = conn.execute(
+            "SELECT id FROM users WHERE id = %s",
+            (user_id,),
+        ).fetchone()
+
+        if not target:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        sessions = conn.execute(
+            """
+            SELECT
+                id AS session_id,
+                created_at,
+                expires_at,
+                last_used_at,
+                user_agent,
+                ip_address::TEXT AS ip_address
+            FROM user_sessions
+            WHERE user_id = %s
+              AND revoked_at IS NULL
+              AND expires_at > CURRENT_TIMESTAMP
+            ORDER BY created_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+
+    return {
+        "user_id": user_id,
+        "total": len(sessions),
+        "sessions": sessions,
+    }
+
+
+@router.delete("/users/{user_id}/sessions/{session_id}")
+def revoke_user_session(
+    user_id: int,
+    session_id: int,
+    admin=Depends(require_role(get_current_user, "admin")),
+):
+    if user_id == admin["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Use your own session management endpoint",
+        )
+
+    with get_db() as conn:
+        target = conn.execute(
+            "SELECT id FROM users WHERE id = %s",
+            (user_id,),
+        ).fetchone()
+
+        if not target:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        revoked_session = conn.execute(
+            """
+            UPDATE user_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+              AND user_id = %s
+              AND revoked_at IS NULL
+              AND expires_at > CURRENT_TIMESTAMP
+            RETURNING id
+            """,
+            (session_id, user_id),
+        ).fetchone()
+
+        if not revoked_session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Active session not found",
+            )
+
+        conn.execute(
+            """
+            INSERT INTO audit_logs
+                (actor_user_id, target_user_id, action, details)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                admin["id"],
+                user_id,
+                "user.session_revoked",
+                Jsonb({"session_id": session_id}),
+            ),
+        )
+
+    return {
+        "message": "User session revoked successfully",
+        "user_id": user_id,
+        "session_id": session_id,
+    }
+
+
 @router.get("/audit-logs")
 def list_audit_logs(
     action: str | None = Query(default=None, max_length=100),
