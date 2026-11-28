@@ -31,7 +31,7 @@ type AdminUser = {
   id: number;
   email: string;
   full_name: string;
-  role: string;
+  role: "user" | "admin";
   is_banned: boolean;
 };
 
@@ -91,6 +91,8 @@ export default function App() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState("");
   const [adminMessage, setAdminMessage] = useState("");
+  const [adminActionLoadingUserId, setAdminActionLoadingUserId] =
+    useState<number | null>(null);
 
   const [form, setForm] =
     useState<IncidentFormData>(emptyIncidentForm);
@@ -113,6 +115,7 @@ export default function App() {
     setAdminUsers([]);
     setAdminError("");
     setAdminMessage("");
+    setAdminActionLoadingUserId(null);
     setEditing(null);
     setForm(emptyIncidentForm);
   }
@@ -221,7 +224,6 @@ export default function App() {
   async function loadAdminUsers() {
     setAdminLoading(true);
     setAdminError("");
-    setAdminMessage("");
 
     try {
       const response = await apiRequest("/api/v1/admin/users");
@@ -235,7 +237,7 @@ export default function App() {
       }
 
       const data = await response.json();
-      setAdminUsers(data);
+      setAdminUsers(data.users ?? []);
     } catch (error) {
       setAdminError(
         error instanceof Error
@@ -244,6 +246,79 @@ export default function App() {
       );
     } finally {
       setAdminLoading(false);
+    }
+  }
+
+  async function handleChangeRole(
+    userId: number,
+    role: "user" | "admin"
+  ) {
+    setAdminActionLoadingUserId(userId);
+    setAdminError("");
+    setAdminMessage("");
+
+    try {
+      const response = await apiRequest(
+        `/api/v1/admin/users/${userId}/role`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ role }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await errorMessage(response));
+      }
+
+      setAdminMessage("User role updated successfully.");
+      await loadAdminUsers();
+    } catch (error) {
+      setAdminError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update user role."
+      );
+    } finally {
+      setAdminActionLoadingUserId(null);
+    }
+  }
+
+  async function handleToggleBan(
+    userId: number,
+    isBanned: boolean
+  ) {
+    setAdminActionLoadingUserId(userId);
+    setAdminError("");
+    setAdminMessage("");
+
+    try {
+      const response = await apiRequest(
+        `/api/v1/admin/users/${userId}/ban`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ is_banned: isBanned }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await errorMessage(response));
+      }
+
+      setAdminMessage(
+        isBanned
+          ? "User banned successfully."
+          : "User unbanned successfully."
+      );
+
+      await loadAdminUsers();
+    } catch (error) {
+      setAdminError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update ban status."
+      );
+    } finally {
+      setAdminActionLoadingUserId(null);
     }
   }
 
@@ -798,7 +873,11 @@ export default function App() {
             loading={adminLoading}
             error={adminError}
             message={adminMessage}
+            currentUserId={user.id}
+            actionLoadingUserId={adminActionLoadingUserId}
             onRefresh={loadAdminUsers}
+            onChangeRole={handleChangeRole}
+            onToggleBan={handleToggleBan}
             cardStyle={card}
             buttonStyle={buttonStyle}
           />
