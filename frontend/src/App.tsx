@@ -1,3 +1,4 @@
+
 import {
   useEffect,
   useRef,
@@ -5,6 +6,8 @@ import {
   type FormEvent,
   type CSSProperties,
 } from "react";
+
+import AdminDashboard from "./components/AdminDashboard";
 
 const API = "";
 
@@ -78,10 +81,10 @@ async function errorMessage(response: Response) {
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   const tokenRef = useRef<string | null>(null);
 
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+
   const [authForm, setAuthForm] = useState({
     email: "",
     password: "",
@@ -104,20 +107,18 @@ export default function App() {
 
   function saveToken(token: string | null) {
     tokenRef.current = token;
-    setAccessToken(token);
   }
 
   function clearAuthentication() {
-  saveToken(null);
-  setUser(null);
-  setIncidents([]);
-  setAdminUsers([]);
-  setAdminError("");
-  setAdminMessage("");
-  setEditing(null);
-  setForm(emptyForm);
-}
-  
+    saveToken(null);
+    setUser(null);
+    setIncidents([]);
+    setAdminUsers([]);
+    setAdminError("");
+    setAdminMessage("");
+    setEditing(null);
+    setForm(emptyForm);
+  }
 
   async function refreshAccessToken(): Promise<string | null> {
     try {
@@ -218,36 +219,36 @@ export default function App() {
       );
     }
   }
+
   async function loadAdminUsers() {
-  setAdminLoading(true);
-  setAdminError("");
-  setAdminMessage("");
+    setAdminLoading(true);
+    setAdminError("");
+    setAdminMessage("");
 
-  try {
-    const response = await apiRequest("/api/v1/admin/users");
+    try {
+      const response = await apiRequest("/api/v1/admin/users");
 
-    if (response.status === 403) {
-      throw new Error("You do not have permission to view users.");
+      if (response.status === 403) {
+        throw new Error("You do not have permission to view users.");
+      }
+
+      if (!response.ok) {
+        throw new Error(await errorMessage(response));
+      }
+
+      const data = await response.json();
+      setAdminUsers(data);
+    } catch (error) {
+      setAdminError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load users."
+      );
+    } finally {
+      setAdminLoading(false);
     }
-
-    if (!response.ok) {
-      throw new Error(await errorMessage(response));
-    }
-
-    const data = await response.json();
-    setAdminUsers(data);
-  } catch (error) {
-    setAdminError(
-      error instanceof Error
-        ? error.message
-        : "Unable to load users."
-    );
-  } finally {
-    setAdminLoading(false);
   }
-}
-  
-  
+
   useEffect(() => {
     let cancelled = false;
 
@@ -274,7 +275,7 @@ export default function App() {
         await loadIncidents();
 
         if (currentUser.role === "admin") {
-           await loadAdminUsers();
+          await loadAdminUsers();
         }
       } catch {
         if (!cancelled) {
@@ -459,14 +460,16 @@ export default function App() {
 
   if (loading) {
     return (
-      <main style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        background: "#f4f6fb",
-        color: "#172033",
-        fontFamily: "Arial, sans-serif",
-      }}>
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          background: "#f4f6fb",
+          color: "#172033",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
         <h2>Loading DevPulse...</h2>
       </main>
     );
@@ -474,27 +477,33 @@ export default function App() {
 
   if (!user) {
     return (
-      <main style={{
-        minHeight: "100vh",
-        background: "#f4f6fb",
-        display: "grid",
-        placeItems: "center",
-        padding: 20,
-        fontFamily: "Arial, sans-serif",
-        color: "#172033",
-      }}>
-        <section style={{
-          ...card,
-          width: "100%",
-          maxWidth: 420,
-          boxSizing: "border-box",
-        }}>
+      <main
+        style={{
+          minHeight: "100vh",
+          background: "#f4f6fb",
+          display: "grid",
+          placeItems: "center",
+          padding: 20,
+          fontFamily: "Arial, sans-serif",
+          color: "#172033",
+        }}
+      >
+        <section
+          style={{
+            ...card,
+            width: "100%",
+            maxWidth: 420,
+            boxSizing: "border-box",
+          }}
+        >
           <div style={{ textAlign: "center", marginBottom: 25 }}>
-            <h1 style={{
-              fontSize: 32,
-              marginBottom: 8,
-              color: "#4f46e5",
-            }}>
+            <h1
+              style={{
+                fontSize: 32,
+                marginBottom: 8,
+                color: "#4f46e5",
+              }}
+            >
               DevPulse
             </h1>
 
@@ -503,11 +512,13 @@ export default function App() {
             </p>
           </div>
 
-          <div style={{
-            display: "flex",
-            gap: 8,
-            marginBottom: 22,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginBottom: 22,
+            }}
+          >
             <button
               type="button"
               onClick={() => {
@@ -628,23 +639,27 @@ export default function App() {
           </form>
 
           {message && (
-            <p style={{
-              background: "#e0e7ff",
-              padding: 12,
-              borderRadius: 8,
-              marginTop: 18,
-              fontSize: 14,
-            }}>
+            <p
+              style={{
+                background: "#e0e7ff",
+                padding: 12,
+                borderRadius: 8,
+                marginTop: 18,
+                fontSize: 14,
+              }}
+            >
               {message}
             </p>
           )}
 
-          <p style={{
-            textAlign: "center",
-            color: "#94a3b8",
-            fontSize: 12,
-            marginTop: 25,
-          }}>
+          <p
+            style={{
+              textAlign: "center",
+              color: "#94a3b8",
+              fontSize: 12,
+              marginTop: 25,
+            }}
+          >
             DevPulse · Secure Incident Management
           </p>
         </section>
@@ -653,50 +668,61 @@ export default function App() {
   }
 
   return (
-    <main style={{
-      minHeight: "100vh",
-      background: "#f4f6fb",
-      color: "#172033",
-      fontFamily: "Arial, sans-serif",
-      padding: "32px 18px",
-    }}>
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f4f6fb",
+        color: "#172033",
+        fontFamily: "Arial, sans-serif",
+        padding: "32px 18px",
+      }}
+    >
       <div style={{ maxWidth: 1000, margin: "auto" }}>
-        <header style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 15,
-          marginBottom: 28,
-        }}>
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 15,
+            marginBottom: 28,
+          }}
+        >
           <div>
             <h1 style={{ margin: 0, fontSize: 30 }}>
               DevPulse
             </h1>
 
-            <p style={{
-              color: "#64748b",
-              marginBottom: 0,
-            }}>
+            <p
+              style={{
+                color: "#64748b",
+                marginBottom: 0,
+              }}
+            >
               Incident Management Dashboard
             </p>
           </div>
 
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 10,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
             <div style={{ textAlign: "right" }}>
               <div style={{ fontWeight: 600 }}>
                 {user.full_name}
               </div>
-              <span style={{
-                fontSize: 12,
-                color: "#64748b",
-                textTransform: "capitalize",
-              }}>
+
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "#64748b",
+                  textTransform: "capitalize",
+                }}
+              >
                 {user.role}
               </span>
             </div>
@@ -734,10 +760,12 @@ export default function App() {
               />
             </label>
 
-            <label style={{
-              display: "block",
-              marginTop: 14,
-            }}>
+            <label
+              style={{
+                display: "block",
+                marginTop: 14,
+              }}
+            >
               Description
               <textarea
                 required
@@ -753,13 +781,15 @@ export default function App() {
               />
             </label>
 
-            <div style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 14,
-              marginTop: 14,
-            }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 14,
+                marginTop: 14,
+              }}
+            >
               <label>
                 Severity
                 <select
@@ -797,11 +827,13 @@ export default function App() {
               </label>
             </div>
 
-            <div style={{
-              display: "flex",
-              gap: 10,
-              marginTop: 18,
-            }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                marginTop: 18,
+              }}
+            >
               <button
                 type="submit"
                 disabled={submitting}
@@ -839,107 +871,38 @@ export default function App() {
         </section>
 
         {message && (
-          <p style={{
-            background: "#e0e7ff",
-            padding: 12,
-            borderRadius: 8,
-          }}>
+          <p
+            style={{
+              background: "#e0e7ff",
+              padding: 12,
+              borderRadius: 8,
+            }}
+          >
             {message}
           </p>
         )}
-    {user.role === "admin" && (
-  <section style={{ ...card, marginBottom: 24 }}>
-    <div style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: 12,
-    }}>
-      <h2 style={{ margin: 0 }}>
-        Admin Dashboard
-      </h2>
 
-      <button
-        onClick={loadAdminUsers}
-        style={{
-          ...buttonStyle,
-          background: "#e0e7ff",
-          color: "#3730a3",
-        }}
-      >
-        Refresh Users
-      </button>
-    </div>
+        {user.role === "admin" && (
+          <AdminDashboard
+            users={adminUsers}
+            loading={adminLoading}
+            error={adminError}
+            message={adminMessage}
+            onRefresh={loadAdminUsers}
+            cardStyle={card}
+            buttonStyle={buttonStyle}
+          />
+        )}
 
-    {adminLoading && <p>Loading users...</p>}
-
-    {adminError && (
-      <p style={{ color: "#dc2626" }}>
-        {adminError}
-      </p>
-    )}
-
-    {adminMessage && (
-      <p style={{ color: "#15803d" }}>
-        {adminMessage}
-      </p>
-    )}
-
-    {!adminLoading && !adminError && (
-      <div style={{
-        display: "grid",
-        gap: 12,
-        marginTop: 18,
-      }}>
-        <h3>Registered Users ({adminUsers.length})</h3>
-
-        {adminUsers.map(adminUser => (
+        <section>
           <div
-            key={adminUser.id}
             style={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              padding: 14,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
             }}
           >
-            <strong>{adminUser.full_name}</strong>
-
-            <p style={{
-              margin: "6px 0",
-              color: "#64748b",
-            }}>
-              {adminUser.email}
-            </p>
-
-            <span style={{
-              fontSize: 13,
-              textTransform: "capitalize",
-            }}>
-              Role: {adminUser.role}
-            </span>
-
-            <span style={{
-              display: "block",
-              fontSize: 13,
-              marginTop: 5,
-              color: adminUser.is_banned ? "#dc2626" : "#15803d",
-            }}>
-              {adminUser.is_banned ? "Banned" : "Active"}
-            </span>
-          </div>
-        ))}
-      </div>
-    )}
-  </section>
-)}
-        <section>
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}>
             <h2>Incidents ({incidents.length})</h2>
 
             <button
@@ -959,45 +922,55 @@ export default function App() {
               No incidents found. Create your first one above.
             </div>
           ) : (
-            <div style={{
-              display: "grid",
-              gap: 14,
-            }}>
+            <div
+              style={{
+                display: "grid",
+                gap: 14,
+              }}
+            >
               {incidents.map(incident => (
                 <article key={incident.id} style={card}>
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: 10,
-                  }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: 10,
+                    }}
+                  >
                     <div>
                       <h3 style={{ margin: "0 0 8px" }}>
                         #{incident.id} — {incident.title}
                       </h3>
 
-                      <p style={{
-                        color: "#64748b",
-                        margin: "0 0 12px",
-                      }}>
+                      <p
+                        style={{
+                          color: "#64748b",
+                          margin: "0 0 12px",
+                        }}
+                      >
                         {incident.description}
                       </p>
 
-                      <span style={{
-                        fontSize: 13,
-                        color: "#475569",
-                      }}>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: "#475569",
+                        }}
+                      >
                         Severity: <b>{incident.severity}</b>
                         {" · "}
                         Status: <b>{incident.status}</b>
                       </span>
                     </div>
 
-                    <div style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                    }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
                       <button
                         style={{
                           ...buttonStyle,
@@ -1027,12 +1000,14 @@ export default function App() {
           )}
         </section>
 
-        <footer style={{
-          textAlign: "center",
-          color: "#94a3b8",
-          fontSize: 12,
-          marginTop: 35,
-        }}>
+        <footer
+          style={{
+            textAlign: "center",
+            color: "#94a3b8",
+            fontSize: 12,
+            marginTop: 35,
+          }}
+        >
           DevPulse · Incident Management System
         </footer>
       </div>
