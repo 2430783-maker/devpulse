@@ -27,6 +27,14 @@ type User = {
 
 type AuthMode = "login" | "register";
 
+type AdminUser = {
+  id: number;
+  email: string;
+  full_name: string;
+  role: string;
+  is_banned: boolean;
+};
+
 const emptyForm = {
   title: "",
   description: "",
@@ -81,6 +89,12 @@ export default function App() {
   });
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
+
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const [adminMessage, setAdminMessage] = useState("");
+
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState<number | null>(null);
 
