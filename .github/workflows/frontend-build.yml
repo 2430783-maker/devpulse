@@ -1,0 +1,37 @@
+name: Frontend Build
+
+on:
+  push:
+    branches:
+      - main
+      - feature/supabase-postgresql
+      - feat/16-frontend-structure-crud
+  pull_request:
+    branches:
+      - main
+      - feature/supabase-postgresql
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build

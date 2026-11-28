@@ -8,18 +8,15 @@ import {
 } from "react";
 
 import AdminDashboard from "./components/AdminDashboard";
+import IncidentForm from "./components/IncidentForm";
+import IncidentList from "./components/IncidentList";
+import IncidentDetails from "./components/IncidentDetails";
 
-const API = "";
-
-type Incident = {
-  id: number;
-  title: string;
-  description: string;
-  severity: "Low" | "Medium" | "High" | "Critical";
-  status: "Open" | "In Progress" | "Resolved";
-  created_at: string;
-  updated_at: string;
-};
+import {
+  emptyIncidentForm,
+  type Incident,
+  type IncidentFormData,
+} from "./types/incident";
 
 type User = {
   id: number;
@@ -38,12 +35,7 @@ type AdminUser = {
   is_banned: boolean;
 };
 
-const emptyForm = {
-  title: "",
-  description: "",
-  severity: "Medium" as Incident["severity"],
-  status: "Open" as Incident["status"],
-};
+const API = import.meta.env.VITE_API_URL || "";
 
 const card: CSSProperties = {
   background: "#fff",
@@ -92,16 +84,20 @@ export default function App() {
   });
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [selectedIncident, setSelectedIncident] =
+    useState<Incident | null>(null);
 
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState("");
   const [adminMessage, setAdminMessage] = useState("");
 
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] =
+    useState<IncidentFormData>(emptyIncidentForm);
   const [editing, setEditing] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -113,22 +109,20 @@ export default function App() {
     saveToken(null);
     setUser(null);
     setIncidents([]);
+    setSelectedIncident(null);
     setAdminUsers([]);
     setAdminError("");
     setAdminMessage("");
     setEditing(null);
-    setForm(emptyForm);
+    setForm(emptyIncidentForm);
   }
 
   async function refreshAccessToken(): Promise<string | null> {
     try {
-      const response = await fetch(
-        `${API}/api/v1/auth/refresh`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(`${API}/api/v1/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
 
       if (!response.ok) {
         return null;
@@ -197,6 +191,8 @@ export default function App() {
   }
 
   async function loadIncidents() {
+    setIncidentsLoading(true);
+
     try {
       const response = await apiRequest("/api/v1/incidents");
 
@@ -217,6 +213,8 @@ export default function App() {
           ? error.message
           : "Unable to load incidents."
       );
+    } finally {
+      setIncidentsLoading(false);
     }
   }
 
@@ -272,6 +270,7 @@ export default function App() {
         if (cancelled) return;
 
         setUser(currentUser);
+
         await loadIncidents();
 
         if (currentUser.role === "admin") {
@@ -378,30 +377,38 @@ export default function App() {
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage("");
     setSubmitting(true);
 
-    const url = editing
+    const isEditing = editing !== null;
+
+    const url = isEditing
       ? `/api/v1/incidents/${editing}`
       : "/api/v1/incidents";
 
     try {
       const response = await apiRequest(url, {
-        method: editing ? "PATCH" : "POST",
+        method: isEditing ? "PATCH" : "POST",
         body: JSON.stringify(form),
       });
+
+      if (response.status === 401) {
+        clearAuthentication();
+        setMessage("Your session has expired. Please log in again.");
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(await errorMessage(response));
       }
 
-      setForm(emptyForm);
+      setForm(emptyIncidentForm);
       setEditing(null);
 
       setMessage(
-        editing ? "Incident updated!" : "Incident created!"
+        isEditing ? "Incident updated!" : "Incident created!"
       );
 
       await loadIncidents();
@@ -416,7 +423,36 @@ export default function App() {
     }
   }
 
+  async function handleView(id: number) {
+    setMessage("");
+
+    try {
+      const response = await apiRequest(`/api/v1/incidents/${id}`);
+
+      if (response.status === 401) {
+        clearAuthentication();
+        setMessage("Your session has expired. Please log in again.");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(await errorMessage(response));
+      }
+
+      const incident: Incident = await response.json();
+      setSelectedIncident(incident);
+      setEditing(null);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load incident details."
+      );
+    }
+  }
+
   function startEdit(incident: Incident) {
+    setSelectedIncident(null);
     setEditing(incident.id);
 
     setForm({
@@ -432,7 +468,12 @@ export default function App() {
     });
   }
 
-  async function deleteIncident(id: number) {
+  function cancelEdit() {
+    setEditing(null);
+    setForm(emptyIncidentForm);
+  }
+
+  async function handleDelete(id: number) {
     if (!window.confirm("Delete this incident?")) return;
 
     try {
@@ -443,8 +484,18 @@ export default function App() {
         }
       );
 
+      if (response.status === 401) {
+        clearAuthentication();
+        setMessage("Your session has expired. Please log in again.");
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(await errorMessage(response));
+      }
+
+      if (selectedIncident?.id === id) {
+        setSelectedIncident(null);
       }
 
       setMessage("Incident deleted.");
@@ -530,8 +581,7 @@ export default function App() {
                 flex: 1,
                 background:
                   authMode === "login" ? "#4f46e5" : "#e5e7eb",
-                color:
-                  authMode === "login" ? "#fff" : "#374151",
+                color: authMode === "login" ? "#fff" : "#374151",
               }}
             >
               Login
@@ -548,8 +598,7 @@ export default function App() {
                 flex: 1,
                 background:
                   authMode === "register" ? "#4f46e5" : "#e5e7eb",
-                color:
-                  authMode === "register" ? "#fff" : "#374151",
+                color: authMode === "register" ? "#fff" : "#374151",
               }}
             >
               Register
@@ -573,7 +622,7 @@ export default function App() {
                   style={inputStyle}
                   placeholder="Your full name"
                   value={authForm.full_name}
-                  onChange={e =>
+                  onChange={(e) =>
                     setAuthForm({
                       ...authForm,
                       full_name: e.target.value,
@@ -591,7 +640,7 @@ export default function App() {
                 style={inputStyle}
                 placeholder="you@example.com"
                 value={authForm.email}
-                onChange={e =>
+                onChange={(e) =>
                   setAuthForm({
                     ...authForm,
                     email: e.target.value,
@@ -610,7 +659,7 @@ export default function App() {
                 style={inputStyle}
                 placeholder="Enter your password"
                 value={authForm.password}
-                onChange={e =>
+                onChange={(e) =>
                   setAuthForm({
                     ...authForm,
                     password: e.target.value,
@@ -689,16 +738,9 @@ export default function App() {
           }}
         >
           <div>
-            <h1 style={{ margin: 0, fontSize: 30 }}>
-              DevPulse
-            </h1>
+            <h1 style={{ margin: 0, fontSize: 30 }}>DevPulse</h1>
 
-            <p
-              style={{
-                color: "#64748b",
-                marginBottom: 0,
-              }}
-            >
+            <p style={{ color: "#64748b", marginBottom: 0 }}>
               Incident Management Dashboard
             </p>
           </div>
@@ -712,9 +754,7 @@ export default function App() {
             }}
           >
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 600 }}>
-                {user.full_name}
-              </div>
+              <div style={{ fontWeight: 600 }}>{user.full_name}</div>
 
               <span
                 style={{
@@ -740,136 +780,6 @@ export default function App() {
           </div>
         </header>
 
-        <section style={{ ...card, marginBottom: 24 }}>
-          <h2 style={{ marginTop: 0 }}>
-            {editing ? "Edit Incident" : "Report a New Incident"}
-          </h2>
-
-          <form onSubmit={handleSubmit}>
-            <label>
-              Title
-              <input
-                required
-                maxLength={150}
-                style={inputStyle}
-                placeholder="Enter incident title"
-                value={form.title}
-                onChange={e =>
-                  setForm({ ...form, title: e.target.value })
-                }
-              />
-            </label>
-
-            <label
-              style={{
-                display: "block",
-                marginTop: 14,
-              }}
-            >
-              Description
-              <textarea
-                required
-                style={{ ...inputStyle, minHeight: 85 }}
-                placeholder="Describe the incident..."
-                value={form.description}
-                onChange={e =>
-                  setForm({
-                    ...form,
-                    description: e.target.value,
-                  })
-                }
-              />
-            </label>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 14,
-                marginTop: 14,
-              }}
-            >
-              <label>
-                Severity
-                <select
-                  style={inputStyle}
-                  value={form.severity}
-                  onChange={e =>
-                    setForm({
-                      ...form,
-                      severity: e.target.value as Incident["severity"],
-                    })
-                  }
-                >
-                  {["Low", "Medium", "High", "Critical"].map(v => (
-                    <option key={v}>{v}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Status
-                <select
-                  style={inputStyle}
-                  value={form.status}
-                  onChange={e =>
-                    setForm({
-                      ...form,
-                      status: e.target.value as Incident["status"],
-                    })
-                  }
-                >
-                  {["Open", "In Progress", "Resolved"].map(v => (
-                    <option key={v}>{v}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                marginTop: 18,
-              }}
-            >
-              <button
-                type="submit"
-                disabled={submitting}
-                style={{
-                  ...buttonStyle,
-                  background: "#4f46e5",
-                  color: "white",
-                  opacity: submitting ? 0.7 : 1,
-                }}
-              >
-                {submitting
-                  ? "Saving..."
-                  : editing
-                    ? "Save Changes"
-                    : "Create Incident"}
-              </button>
-
-              {editing !== null && (
-                <button
-                  type="button"
-                  style={{
-                    ...buttonStyle,
-                    background: "#e5e7eb",
-                  }}
-                  onClick={() => {
-                    setEditing(null);
-                    setForm(emptyForm);
-                  }}
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        </section>
-
         {message && (
           <p
             style={{
@@ -894,111 +804,31 @@ export default function App() {
           />
         )}
 
-        <section>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <h2>Incidents ({incidents.length})</h2>
+        {selectedIncident ? (
+          <IncidentDetails
+            incident={selectedIncident}
+            onBack={() => setSelectedIncident(null)}
+          />
+        ) : (
+          <>
+            <IncidentForm
+              form={form}
+              setForm={setForm}
+              editing={editing}
+              onSubmit={handleSubmit}
+              onCancel={cancelEdit}
+            />
 
-            <button
-              onClick={loadIncidents}
-              style={{
-                ...buttonStyle,
-                background: "#e0e7ff",
-                color: "#3730a3",
-              }}
-            >
-              Refresh
-            </button>
-          </div>
-
-          {incidents.length === 0 ? (
-            <div style={card}>
-              No incidents found. Create your first one above.
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: 14,
-              }}
-            >
-              {incidents.map(incident => (
-                <article key={incident.id} style={card}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      flexWrap: "wrap",
-                      gap: 10,
-                    }}
-                  >
-                    <div>
-                      <h3 style={{ margin: "0 0 8px" }}>
-                        #{incident.id} — {incident.title}
-                      </h3>
-
-                      <p
-                        style={{
-                          color: "#64748b",
-                          margin: "0 0 12px",
-                        }}
-                      >
-                        {incident.description}
-                      </p>
-
-                      <span
-                        style={{
-                          fontSize: 13,
-                          color: "#475569",
-                        }}
-                      >
-                        Severity: <b>{incident.severity}</b>
-                        {" · "}
-                        Status: <b>{incident.status}</b>
-                      </span>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 8,
-                        alignItems: "center",
-                      }}
-                    >
-                      <button
-                        style={{
-                          ...buttonStyle,
-                          background: "#e0e7ff",
-                          color: "#3730a3",
-                        }}
-                        onClick={() => startEdit(incident)}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        style={{
-                          ...buttonStyle,
-                          background: "#fee2e2",
-                          color: "#991b1b",
-                        }}
-                        onClick={() => deleteIncident(incident.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+            <IncidentList
+              incidents={incidents}
+              loading={incidentsLoading}
+              onRefresh={loadIncidents}
+              onView={handleView}
+              onEdit={startEdit}
+              onDelete={handleDelete}
+            />
+          </>
+        )}
 
         <footer
           style={{

@@ -10,6 +10,7 @@ class IncidentCreate(BaseModel):
     description: str = Field(min_length=1)
     severity: Severity = "Medium"
     status: Status = "Open"
+    group_id: int | None = Field(default=None, gt=0)
 
 
 class IncidentUpdate(BaseModel):
