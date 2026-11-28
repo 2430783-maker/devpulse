@@ -108,12 +108,16 @@ export default function App() {
   }
 
   function clearAuthentication() {
-    saveToken(null);
-    setUser(null);
-    setIncidents([]);
-    setEditing(null);
-    setForm(emptyForm);
-  }
+  saveToken(null);
+  setUser(null);
+  setIncidents([]);
+  setAdminUsers([]);
+  setAdminError("");
+  setAdminMessage("");
+  setEditing(null);
+  setForm(emptyForm);
+}
+  
 
   async function refreshAccessToken(): Promise<string | null> {
     try {
