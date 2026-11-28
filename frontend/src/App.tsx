@@ -214,7 +214,36 @@ export default function App() {
       );
     }
   }
+  async function loadAdminUsers() {
+  setAdminLoading(true);
+  setAdminError("");
+  setAdminMessage("");
 
+  try {
+    const response = await apiRequest("/api/v1/admin/users");
+
+    if (response.status === 403) {
+      throw new Error("You do not have permission to view users.");
+    }
+
+    if (!response.ok) {
+      throw new Error(await errorMessage(response));
+    }
+
+    const data = await response.json();
+    setAdminUsers(data);
+  } catch (error) {
+    setAdminError(
+      error instanceof Error
+        ? error.message
+        : "Unable to load users."
+    );
+  } finally {
+    setAdminLoading(false);
+  }
+}
+  
+  
   useEffect(() => {
     let cancelled = false;
 
