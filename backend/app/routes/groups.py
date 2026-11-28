@@ -282,11 +282,7 @@ def add_member(
     with get_db() as conn:
         require_group_owner(conn, group_id, user)
 
-        if data.user_id == user["id"]:
-            raise HTTPException(
-                status_code=400,
-                detail="The group owner is already a group member",
-            )
+        
 
         if data.email:
             target = conn.execute(
