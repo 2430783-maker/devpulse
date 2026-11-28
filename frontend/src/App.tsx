@@ -11,6 +11,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import IncidentForm from "./components/IncidentForm";
 import IncidentList from "./components/IncidentList";
 import IncidentDetails from "./components/IncidentDetails";
+import GroupsDashboard from "./components/GroupsDashboard";
 
 import {
   emptyIncidentForm,
@@ -882,6 +883,12 @@ export default function App() {
             buttonStyle={buttonStyle}
           />
         )}
+
+        <GroupsDashboard
+          apiRequest={apiRequest}
+          cardStyle={card}
+          buttonStyle={buttonStyle}
+        />
 
         {selectedIncident ? (
           <IncidentDetails
