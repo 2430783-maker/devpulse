@@ -268,6 +268,10 @@ export default function App() {
 
         setUser(currentUser);
         await loadIncidents();
+
+        if (currentUser.role === "admin") {
+           await loadAdminUsers();
+        }
       } catch {
         if (!cancelled) {
           clearAuthentication();
@@ -342,6 +346,10 @@ export default function App() {
       setMessage("Welcome to DevPulse!");
 
       await loadIncidents();
+
+      if (data.user.role === "admin") {
+        await loadAdminUsers();
+      }
     } catch (error) {
       setMessage(
         error instanceof Error
