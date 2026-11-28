@@ -5,13 +5,16 @@ from app.routes.incidents import router as incidents_router
 from app.routes.auth import router as auth_router
 from app.routes.admin import router as admin_router
 from app.routes.groups import router as groups_router
+from app.database import initialize_database
 
 app = FastAPI(
     title="DevPulse API",
     description="Incident Management System API",
     version="1.0.0",
 )
-
+@app.on_event("startup")
+def startup_event():
+    initialize_database()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

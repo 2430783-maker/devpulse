@@ -1,6 +1,6 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.database import get_db
 from app.routes.auth import get_current_user
@@ -19,7 +19,14 @@ class GroupRename(BaseModel):
 
 
 class MemberAdd(BaseModel):
-    user_id: int = Field(gt=0)
+    user_id: int | None = Field(default=None, gt=0)
+    email: str | None = None
+
+    @model_validator(mode="after")
+    def validate_member(self):
+        if self.user_id is None and not self.email:
+            raise ValueError("Provide either user_id or email")
+        return self
 
 
 class MemberPermissions(BaseModel):
@@ -169,6 +176,54 @@ def get_group(
     return serialize_group(group)
 
 
+# List group members and their permissions
+
+@router.get("/{group_id}/members")
+def list_group_members(
+    group_id: int,
+    user=Depends(get_current_user),
+):
+    with get_db() as conn:
+        require_group_access(conn, group_id, user)
+
+        members = conn.execute(
+            """
+            SELECT
+                u.id,
+                u.email,
+                u.full_name,
+                'owner' AS membership_role,
+                TRUE AS can_view,
+                TRUE AS can_create,
+                TRUE AS can_edit,
+                TRUE AS can_delete
+            FROM groups g
+            JOIN users u ON u.id = g.owner_id
+            WHERE g.id = %s
+
+            UNION ALL
+
+            SELECT
+                u.id,
+                u.email,
+                u.full_name,
+                'member' AS membership_role,
+                gm.can_view,
+                gm.can_create,
+                gm.can_edit,
+                gm.can_delete
+            FROM group_members gm
+            JOIN users u ON u.id = gm.user_id
+            WHERE gm.group_id = %s
+
+            ORDER BY membership_role, full_name
+            """,
+            (group_id, group_id),
+        ).fetchall()
+
+    return {"members": [dict(member) for member in members]}
+
+
 # Rename a group (owner only)
 
 @router.patch("/{group_id}")
@@ -227,16 +282,16 @@ def add_member(
     with get_db() as conn:
         require_group_owner(conn, group_id, user)
 
-        if data.user_id == user["id"]:
-            raise HTTPException(
-                status_code=400,
-                detail="The group owner is already a group member",
-            )
-
-        target = conn.execute(
-            "SELECT id FROM users WHERE id = %s",
-            (data.user_id,),
-        ).fetchone()
+        if data.email:
+            target = conn.execute(
+                "SELECT id FROM users WHERE LOWER(email) = LOWER(%s)",
+                (data.email.strip(),),
+            ).fetchone()
+        else:
+            target = conn.execute(
+                "SELECT id FROM users WHERE id = %s",
+                (data.user_id,),
+            ).fetchone()
 
         if target is None:
             raise HTTPException(
@@ -244,12 +299,20 @@ def add_member(
                 detail="User not found",
             )
 
+        target_user_id = target["id"]
+
+        if target_user_id == user["id"]:
+            raise HTTPException(
+                status_code=400,
+                detail="The group owner is already a group member",
+            )
+
         existing = conn.execute(
             """
             SELECT id FROM group_members
             WHERE group_id = %s AND user_id = %s
             """,
-            (group_id, data.user_id),
+            (group_id, target_user_id),
         ).fetchone()
 
         if existing:
@@ -264,7 +327,7 @@ def add_member(
             VALUES (%s, %s)
             RETURNING *
             """,
-            (group_id, data.user_id),
+            (group_id, target_user_id),
         ).fetchone()
 
     return {
